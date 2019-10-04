@@ -22,7 +22,7 @@ gradle-app.setting
 *.pydevproject
 .project
 .metadata
-bin/**
+**/bin/**
 tmp/**
 tmp/**/*
 *.tmp
