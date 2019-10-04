@@ -1,0 +1,4 @@
+rootProject.name = 'algoexpert'
+
+include 'algoexpert-lib'
+include 'algoexpert-agent'

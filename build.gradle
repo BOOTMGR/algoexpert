@@ -1,0 +1,24 @@
+allprojects {
+	apply plugin : 'java'
+	apply plugin: 'eclipse'
+
+	// Add compileOnly dependencies to eclipse classpath
+	eclipse {
+		classpath {
+			plusConfigurations += [configurations.compileOnly]
+		}
+	}
+		
+	sourceCompatibility = '1.6'
+	
+	tasks.withType(JavaCompile) {
+	    options.encoding = 'UTF-8'
+	}
+
+    repositories {
+        jcenter() 
+        mavenCentral()
+    }
+}
+
+

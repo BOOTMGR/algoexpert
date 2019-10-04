@@ -1,0 +1,27 @@
+plugins {
+    id 'maven-publish'
+}
+
+dependencies {
+	implementation 'com.fasterxml.jackson.core:jackson-databind:2.9.10'
+}
+
+jar {
+    baseName = 'libalgoexpert'
+    version = version
+    from {
+        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+}
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            from components.java
+        }
+    }
+}
+
+group = 'hp.bootmgr'
+version = '1.0.0'
+description = 'algoexpert'

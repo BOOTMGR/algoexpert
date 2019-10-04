@@ -1,0 +1,24 @@
+dependencies {
+    implementation 'org.javassist:javassist:3.25.0-GA'
+    compileOnly project(':algoexpert-lib')
+}
+
+group = 'hp.bootmgr'
+version = '1.0.0'
+description = 'algoexpert-agent'
+
+jar {
+    manifest {
+        attributes(
+            'Premain-Class' : 'hp.bootmgr.algoexpert.instrumentation.InstrumentationAgent',
+			'Can-Redefine-Classes' : 'false',
+			'Can-Retransform-Classes' : 'true'
+        )
+    }
+    
+    // Create Fat Jar
+    from {
+        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+}
+ 

@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="utf-8">
+
+	<title>Recursion Tree: ${name}</title>
+
+	<style>
+		.node {
+			cursor: pointer;
+		}
+
+		.node circle {
+			fill: #fff;
+			stroke: steelblue;
+			stroke-width: 1.5px;
+		}
+
+		.node text {
+			font: 10px sans-serif;
+		}
+
+		.link path {
+			fill: none;
+			stroke: #ccc;
+			stroke-width: 1.5px;
+		}
+
+		#graph {
+			border: 1px solid;
+		}
+	</style>
+	<script src="https://d3js.org/d3.v3.min.js"></script>
+	<script>
+		var root = ${json};
+
+		var clrExpanded = "#ffffff", clrCollapsed = "#ffe0e0", rectBorder = "#ff8585";
+
+		var margin = {
+			top: 20,
+			right: 120,
+			bottom: 20,
+			left: 120
+		};
+
+		var rootX = 500, rootY = 20;
+
+		var i = 0,
+			duration = 350,
+			rectW = 60,
+			rectH = 30;
+
+		var tree, svg, zm, diagonal;
+
+		function collapse(d) {
+			var t;
+			if (d.children) {
+				d._children = d.children;
+				d.children = null;
+				t = d._children;
+			} else t = d._children;
+
+			if(t) t.forEach(collapse);
+			return d;
+		}
+
+		function expand(d) {
+			var t;
+			if (d._children) {
+				d.children = d._children;
+				d._children = null;
+				t = d.children;
+			} else t = d.children;
+			
+			if(t) t.forEach(expand);
+			return d;
+		}
+
+		function resetZoom() {
+			svg.attr("transform", "translate(" + rootX + "," + rootY + ") scale(1,1)");
+			zm.scale(1.0).translate([rootX,rootY]);
+		}
+
+		function update(source) {
+			var nodes = tree.nodes(root).reverse(),
+				links = tree.links(nodes);
+
+			nodes.forEach(function (d) {
+				d.y = d.depth * 180;
+			});
+
+			var node = svg.selectAll("g.node")
+				.data(nodes, function (d) {
+					return d.id || (d.id = ++i);
+				});
+
+			var nodeEnter = node.enter().append("g")
+				.attr("class", "node")
+				.attr("transform", function (d) {
+					return "translate(" + source.x0 + "," + source.y0 + ")";
+				})
+				.on("click", click);
+
+			var txtnd = nodeEnter.append("text")
+				.attr("dy", ".35em")
+				.attr("text-anchor", "middle")
+				.text(function (d) {
+					return d.name;
+				});
+
+			nodeEnter.append("rect")
+				.attr("width", function(d) { return rectW = (txtnd.node().getBBox().width + 20); })
+				.attr("height", rectH)
+				.attr("stroke", rectBorder)
+				.attr("stroke-width", 1)
+				.style("fill", function (d) {
+					return d._children ? clrCollapsed : clrExpanded;
+				});
+
+			nodeEnter.select("text")
+				.attr("x", rectW / 2)
+				.attr("y", rectH / 2);
+
+			nodeEnter.append("text")
+				.attr("x", rectW / 2)
+				.attr("y", rectH / 2)
+				.attr("dy", ".35em")
+				.attr("text-anchor", "middle")
+				.text(function (d) {
+					return d.name;
+				});
+
+			var nodeUpdate = node.transition()
+				.duration(duration)
+				.attr("transform", function (d) {
+					return "translate(" + d.x + "," + d.y + ")";
+				});
+
+			nodeUpdate.select("rect")
+				.style("fill", function (d) {
+					return d._children ? clrCollapsed : clrExpanded;
+				});
+
+			var nodeExit = node.exit().transition()
+				.duration(duration)
+				.attr("transform", function (d) {
+					return "translate(" + source.x + "," + source.y + ")";
+				})
+				.remove();
+
+			nodeExit.select("rect");
+			nodeExit.select("text");
+
+			var link = svg.selectAll("g.link")
+				.data(links, function (d) {
+					return d.target.id;
+				});
+
+			var g = link.enter().insert("g", "g")
+				.attr("class", "link");
+
+			g.append("path")
+				.attr("d", function (d) {
+					var o = {
+						x: source.x0,
+						y: source.y0
+					};
+					return diagonal({
+						source: o,
+						target: o
+					});
+				});
+
+			g.append("text")
+				.attr("class", "link-txt")
+			    .attr("font-family", "Arial, Helvetica, sans-serif")
+			    .attr("fill", "Black")
+			    .style("font", "normal 12px Arial")
+			    .attr("transform", function(d) {
+			        return "translate(" +
+			            (d.target.x + 50 + (d.target.x == d.source.x ? 10 : 0)) + "," + 
+			            (d.source.y + 100) + ")";
+			    })
+			    .attr("dy", ".35em")
+			    .attr("text-anchor", "middle")
+			    .text(function(d) {
+			         return d.target.retVal;
+			    });
+
+			// Transition links to their new position.
+			link.select("path").transition()
+				.duration(duration)
+				.attr("d", diagonal);
+
+			link.select("text").transition()
+				.duration(duration)
+				.attr("transform", function(d) {
+			        return "translate(" +
+			            (d.target.x + 50 + (d.target.x == d.source.x ? 10 : 0)) + "," + 
+			            (d.source.y + 100) + ")";
+			    });
+
+			var linkExit = link.exit();
+			linkExit.select("path").transition()
+				.duration(duration)
+				.attr("d", function (d) {
+					var o = {
+						x: source.x,
+						y: source.y
+					};
+					return diagonal({
+						source: o,
+						target: o
+					});
+				});
+			linkExit.remove();
+
+			nodes.forEach(function (d) {
+				d.x0 = d.x;
+				d.y0 = d.y;
+			});
+		}
+
+		function click(d) {
+			if (d.children) {
+				d._children = d.children;
+				d.children = null;
+			} else {
+				d.children = d._children;
+				d._children = null;
+			}
+			update(d);
+		}
+
+		function redraw() {
+			svg.attr("transform", "translate(" + d3.event.translate + ") scale(" + d3.event.scale + ")");
+		}
+
+		document.addEventListener("DOMContentLoaded", function (event) {
+			tree = d3.layout.tree().nodeSize([130, 40]);
+			diagonal = d3.svg.diagonal()
+				.projection(function (d) {
+					return [d.x + rectW / 2, d.y + rectH / 2];
+				});
+
+			svg = d3.select("#graph").append("svg").attr("width", "100%").attr("height", "800")
+				.call(zm = d3.behavior.zoom().scaleExtent([1, 3]).on("zoom", redraw)).append("g")
+				.attr("transform", "translate(" + rootX + "," + rootY + ")");
+
+			defs = svg.append("defs")
+
+			defs.append("marker")
+				.attr({
+					"id":"arrow",
+					"viewBox":"0 0 10 10",
+					"refX": -(rectH / 2) - 10,
+					"refY": 5,
+					"markerWidth":4,
+					"markerHeight":4,
+					"orient":"auto"
+				})
+				.append("path")
+					//.attr("d", "M0,-5L10,0L0,5")
+					.attr("d", "M0,5L10,0L10,10")
+					.attr("class","arrowHead");
+
+			zm.translate([rootX, rootY]);
+
+			root.x0 = 0;
+			root.y0 = margin.top;
+
+			root.children.forEach(collapse);
+			update(root);
+
+			d3.select("#graph").style("height", "800px");
+			d3.select("#expand").on("click", function() { update(expand(root)) });
+			d3.select("#collapse").on("click", function() { update(collapse(root)) });
+			d3.select("#reset-zoom").on("click", resetZoom);
+		});
+	</script>
+</head>
+
+<body>
+	<div>
+		<p>Drag anywhere to pan</p>
+		<button id="expand">Expand All</button>
+		<button id="collapse">Collapse All</button>
+		<button id="reset-zoom">Reset Zoom</button>
+	</div>
+	<div id="graph"></div>
+</body>
+
+</html>
