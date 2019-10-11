@@ -6,6 +6,9 @@ import java.util.Arrays;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class CallTrace {
+	
+	private String funcName;
+	
 	@JsonProperty("name")
 	private Object[] params;
 	private Object retVal;
@@ -43,6 +46,14 @@ public class CallTrace {
 	
 	public void setRetVal(double retVal) {
 		this.retVal = retVal;
+	}
+	
+	public String getFuncName() {
+		return funcName;
+	}
+
+	public void setFuncName(String funcName) {
+		this.funcName = funcName;
 	}
 
 	@Override

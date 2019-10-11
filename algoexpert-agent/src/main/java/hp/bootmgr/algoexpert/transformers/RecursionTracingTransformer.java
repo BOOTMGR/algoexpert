@@ -44,6 +44,7 @@ public class RecursionTracingTransformer implements ClassFileTransformer {
 						m.setBody("{ System.out.println(\"[Generated Method Called]\");"
 								+ "hp.bootmgr.algoexpert.CallTrace c = new hp.bootmgr.algoexpert.CallTrace();"
 								+ "c.setParams($args);"
+								+ "c.setFuncName(\"" + m.getName() + "\");"
 								+ "c.setRetVal(" + tracerMethod.getName() + "(c,$$));"
 								+ "hp.bootmgr.algoexpert.result.TransformationFactory.transform(c);"
 								+ "return ($r) c.getRetVal(); }");

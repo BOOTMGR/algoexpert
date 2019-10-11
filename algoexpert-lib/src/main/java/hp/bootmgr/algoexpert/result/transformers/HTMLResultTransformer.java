@@ -14,17 +14,17 @@ import hp.bootmgr.algoexpert.utils.FileUtils;
 
 public class HTMLResultTransformer implements Transformer {
 
-	private final String filePath = "/template.html";
+	private final String PATH_TEMPLATE_FILE = "/template.html";
 	
-	private final String outputFilePath = "trace.html";
+	private final String PATH_OUT_FILE = "%s_trace.html";
 	
-	private final Pattern pattern = Pattern.compile("\\$\\{([^}]+)\\}");
+	private final Pattern PATRN_PLACEHOLDERS = Pattern.compile("\\$\\{([^}]+)\\}");
 	
 	private final String template;
 	
 	public HTMLResultTransformer() {
 		try {
-			this.template = FileUtils.readClassPathFile(filePath);
+			this.template = FileUtils.readClassPathFile(PATH_TEMPLATE_FILE);
 		} catch (IOException e) {
 			e.printStackTrace();
 			throw new RuntimeException(e);
@@ -37,15 +37,19 @@ public class HTMLResultTransformer implements Transformer {
 			HashMap<String, String> values = new HashMap<String, String>();
 			values.put("json", new ObjectMapper().writeValueAsString(trace));
 			String content = substitutePlaceHolders(template, values);
-			FileUtils.writeFile(outputFilePath, content);
+			FileUtils.writeFile(getOutFileName(trace), content);
 		} catch (JsonProcessingException e) {
 			e.printStackTrace();
 		}
 	}
 	
+	private String getOutFileName(CallTrace trace) {
+		return String.format(PATH_OUT_FILE, trace.getFuncName());
+	}
+	
 	private String substitutePlaceHolders(String template, HashMap<String, String> values) {
 		StringBuffer builder = new StringBuffer();
-		Matcher matcher = pattern.matcher(template);
+		Matcher matcher = PATRN_PLACEHOLDERS.matcher(template);
 		while(matcher.find()) {
 			matcher.appendReplacement(builder, values.getOrDefault(matcher.group(1), ""));
 		}
