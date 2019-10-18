@@ -236,7 +236,9 @@
 		}
 
 		document.addEventListener("DOMContentLoaded", function (event) {
-			tree = d3.layout.tree().nodeSize([130, 40]);
+			tree = d3.layout.tree().nodeSize([100, 40]).separation(function(a, b) {
+		        return 1;
+		    });
 			diagonal = d3.svg.diagonal()
 				.projection(function (d) {
 					return [d.x + rectW / 2, d.y + rectH / 2];
