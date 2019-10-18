@@ -178,9 +178,7 @@
 			    .attr("fill", "Black")
 			    .style("font", "normal 12px Arial")
 			    .attr("transform", function(d) {
-			        return "translate(" +
-			            (d.target.x + 50 + (d.target.x == d.source.x ? 10 : 0)) + "," + 
-			            (d.source.y + 100) + ")";
+			    	return "translate(" + (d.source.x0 + (rectW / 2)) + "," + (d.source.y0 + (rectH / 2)) + ")";
 			    })
 			    .attr("dy", ".35em")
 			    .attr("text-anchor", "middle")
@@ -197,7 +195,7 @@
 				.duration(duration)
 				.attr("transform", function(d) {
 			        return "translate(" +
-			            (d.target.x + 50 + (d.target.x == d.source.x ? 10 : 0)) + "," + 
+				        (d.target.x + (rectW / 2)) + "," + 
 			            (d.source.y + 100) + ")";
 			    });
 
