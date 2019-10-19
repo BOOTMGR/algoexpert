@@ -22,7 +22,19 @@ public class RecursionTracingTransformer implements ClassFileTransformer {
 	
 	private static final Logger LOG = LoggerFactory.getLogger(RecursionTracingTransformer.class);
 	
-	private final ClassPool CLASS_POOL = ClassPool.getDefault();
+	private final ClassPool CLASS_POOL;
+	
+	private final CtClass ccCallTrace; 
+	
+	public RecursionTracingTransformer() {
+		CLASS_POOL =  ClassPool.getDefault();
+		try {
+			ccCallTrace = CLASS_POOL.get("hp.bootmgr.algoexpert.CallTrace");
+		} catch (NotFoundException e) {
+			LOG.error("Class not found", e);
+			throw new RuntimeException(e);
+		}
+	}
 	
 	public byte[] transform(ClassLoader loader, String className, Class<?> classBeingRedefined,
 			ProtectionDomain protectionDomain, byte[] classfileBuffer) throws IllegalClassFormatException {
@@ -41,18 +53,14 @@ public class RecursionTracingTransformer implements ClassFileTransformer {
 				if(m.hasAnnotation(Recursive.class)) {
 					LOG.trace("\tTarget Method: " + m);
 					try {
-						CtMethod tracerMethod = addProxyMethod(m, cc);
+						boolean isVoid = isVoid(m.getReturnType());
+						
+						CtMethod tracerMethod = addProxyMethod(m, cc, isVoid);
 						
 						if(tracerMethod == null) continue;
 						
 						LOG.trace("\tReplacing original method call...");
-						m.setBody("hp.bootmgr.algoexpert.CallTrace c = new hp.bootmgr.algoexpert.CallTrace();"
-								+ "c.setParams($args);"
-								+ "c.setFuncName(\"" + m.getName() + "\");"
-								+ "c.setRetVal(" + tracerMethod.getName() + "(c,$$));"
-								+ "hp.bootmgr.algoexpert.result.TransformationFactory.transform(c);"
-								+ "return ($r) c.getRetVal(); }");
-						
+						m.setBody(getTracingCodeForRootCall(m.getName(), tracerMethod.getName(), isVoid));
 					} catch (CannotCompileException e) {
 						LOG.error("Can not modify", e);
 					} catch (NotFoundException e) {
@@ -73,17 +81,20 @@ public class RecursionTracingTransformer implements ClassFileTransformer {
 		return byteCode;
 	}
 	
-	private CtMethod addProxyMethod(CtMethod m, CtClass clazz) throws CannotCompileException, NotFoundException {
+	private boolean isVoid(CtClass clazz) {
+		return "void".equals(clazz.getName());
+	}
+	
+	private CtMethod addProxyMethod(final CtMethod m, final CtClass clazz, final boolean isVoid) throws CannotCompileException, NotFoundException {
 		LOG.trace("\tGenerating Tracer Method...");
 		final String methodName = m.getName();
-		final String methodClass = m.getClass().getName();
+		final String methodClass = m.getDeclaringClass().getName();
 		final String methodSignature = m.getSignature();
-		CtClass ccTraceRecorder = CLASS_POOL.get("hp.bootmgr.algoexpert.CallTrace");
 		
 		final String proxyMethodName = proxyMethodName(methodName);
 		CtMethod copy = CtNewMethod.copy(m, proxyMethodName, clazz, null);
-		copy.insertParameter(ccTraceRecorder);
-		copy.addLocalVariable("__call", ccTraceRecorder);
+		copy.insertParameter(ccCallTrace);
+		copy.addLocalVariable("__call", ccCallTrace);
 		copy.insertBefore("__call = $1;");
 		LOG.trace("\t\tInjecting Method: {} {}", copy.getName(), copy.getSignature());
 		clazz.addMethod(copy);
@@ -91,19 +102,55 @@ public class RecursionTracingTransformer implements ClassFileTransformer {
 		copy.instrument(new ExprEditor() {
 			@Override
 			public void edit(MethodCall call) throws CannotCompileException {
+				
 				if(methodName.equals(call.getMethodName())
-						&& methodSignature.equals(call.getSignature())
-						&& methodClass.equals(methodClass)) {
-					LOG.trace("\t\tPatching recursive calls to call generated method...");
-					call.replace("hp.bootmgr.algoexpert.CallTrace c = new hp.bootmgr.algoexpert.CallTrace();"
-							+ "__call.calls.add(c);"
-							+ "c.setParams($args);"
-							+ "c.setRetVal(" + proxyMethodName + "(c,$$));"
-							+ "$_ = ($r) c.getRetVal();"); 
+						&& methodClass.equals(call.getEnclosingClass().getName())
+						&& methodSignature.equals(call.getSignature())) {
+					LOG.trace("\t\t\tCall @ Line# {}", call.getLineNumber());
+					call.replace(getTracingCodeForNestedCall(proxyMethodName, isVoid)); 
 				}
+				
 			}
 		});
 		return copy;
+	}
+	
+	private String getTracingCodeForRootCall(String originalMethodName, String tracingMethodName, boolean isVoid) {
+		StringBuilder builder = new StringBuilder();
+		builder.append("{");
+		builder.append("hp.bootmgr.algoexpert.CallTrace c = new hp.bootmgr.algoexpert.CallTrace();");
+		builder.append("c.setParams($args);");
+		builder.append("c.setFuncName(\"" + originalMethodName + "\");");
+		
+		if(!isVoid) {
+			builder.append("c.setRetVal(" + tracingMethodName + "(c,$$));");
+		} else {
+			builder.append(tracingMethodName + "(c,$$);");
+		}
+		
+		builder.append("hp.bootmgr.algoexpert.result.TransformationFactory.transform(c);");
+		
+		if(!isVoid)
+			builder.append("return ($r) c.getRetVal();");
+		
+		builder.append("}");
+		return builder.toString();
+	}
+	
+	private String getTracingCodeForNestedCall(String methodName, boolean isVoid) {
+		StringBuilder builder = new StringBuilder();
+		builder.append("hp.bootmgr.algoexpert.CallTrace c = new hp.bootmgr.algoexpert.CallTrace();");
+		builder.append("__call.calls.add(c);");
+		builder.append("c.setParams($args);");
+		
+		if(!isVoid) {
+			builder.append("c.setRetVal(" + methodName + "(c,$$));");
+			builder.append("$_ = ($r) c.getRetVal();");
+		} else {
+			builder.append(methodName + "(c,$$);");
+		}
+		
+		return builder.toString();
 	}
 	
 	private String proxyMethodName(String orig) {
