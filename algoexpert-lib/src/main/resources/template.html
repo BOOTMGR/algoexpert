@@ -130,6 +130,11 @@
 				.text(function (d) {
 					return d.name;
 				});
+			
+			nodeEnter.append("title")
+				.text(function (d) {
+					return d.name;
+				});
 
 			var nodeUpdate = node.transition()
 				.duration(duration)
