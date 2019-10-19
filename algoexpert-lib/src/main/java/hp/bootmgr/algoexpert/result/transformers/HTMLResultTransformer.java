@@ -5,6 +5,9 @@ import java.util.HashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -13,6 +16,8 @@ import hp.bootmgr.algoexpert.result.Transformer;
 import hp.bootmgr.algoexpert.utils.FileUtils;
 
 public class HTMLResultTransformer implements Transformer {
+	
+	private static final Logger LOG = LoggerFactory.getLogger(HTMLResultTransformer.class);
 
 	private final String PATH_TEMPLATE_FILE = "/template.html";
 	
@@ -26,7 +31,7 @@ public class HTMLResultTransformer implements Transformer {
 		try {
 			this.template = FileUtils.readClassPathFile(PATH_TEMPLATE_FILE);
 		} catch (IOException e) {
-			e.printStackTrace();
+			LOG.error("Can not read template", e);
 			throw new RuntimeException(e);
 		}
 	}
@@ -39,7 +44,7 @@ public class HTMLResultTransformer implements Transformer {
 			String content = substitutePlaceHolders(template, values);
 			FileUtils.writeFile(getOutFileName(trace), content);
 		} catch (JsonProcessingException e) {
-			e.printStackTrace();
+			LOG.error("Can process JSON", e);
 		}
 	}
 	

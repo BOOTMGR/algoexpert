@@ -4,6 +4,9 @@ import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.IllegalClassFormatException;
 import java.security.ProtectionDomain;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import hp.bootmgr.algoexpert.annotations.Recursive;
 import hp.bootmgr.algoexpert.annotations.TraceRecursion;
 import javassist.CannotCompileException;
@@ -17,6 +20,8 @@ import javassist.expr.MethodCall;
 
 public class RecursionTracingTransformer implements ClassFileTransformer {
 	
+	private static final Logger LOG = LoggerFactory.getLogger(RecursionTracingTransformer.class);
+	
 	private final ClassPool CLASS_POOL = ClassPool.getDefault();
 	
 	public byte[] transform(ClassLoader loader, String className, Class<?> classBeingRedefined,
@@ -26,23 +31,22 @@ public class RecursionTracingTransformer implements ClassFileTransformer {
 		try {
 			cc = CLASS_POOL.get(className.replaceAll("/", "."));
 		} catch (NotFoundException e) {
-			System.out.println("Javassit: NotFound: " + e.getMessage());
+			LOG.trace("Javassit: NotFound: " + e.getMessage());
 			return null;
 		}
 		
 		if(cc.hasAnnotation(TraceRecursion.class)) {
-			System.out.println("Transforming: " + className);
+			LOG.trace("Transforming: " + className);
 			for(CtMethod m : cc.getMethods()) {
 				if(m.hasAnnotation(Recursive.class)) {
-					System.out.println("\tTarget Method: " + m);
+					LOG.trace("\tTarget Method: " + m);
 					try {
 						CtMethod tracerMethod = addProxyMethod(m, cc);
 						
 						if(tracerMethod == null) continue;
 						
-						System.out.println("\tReplacing original method call...");
-						m.setBody("{ System.out.println(\"[Generated Method Called]\");"
-								+ "hp.bootmgr.algoexpert.CallTrace c = new hp.bootmgr.algoexpert.CallTrace();"
+						LOG.trace("\tReplacing original method call...");
+						m.setBody("hp.bootmgr.algoexpert.CallTrace c = new hp.bootmgr.algoexpert.CallTrace();"
 								+ "c.setParams($args);"
 								+ "c.setFuncName(\"" + m.getName() + "\");"
 								+ "c.setRetVal(" + tracerMethod.getName() + "(c,$$));"
@@ -50,11 +54,9 @@ public class RecursionTracingTransformer implements ClassFileTransformer {
 								+ "return ($r) c.getRetVal(); }");
 						
 					} catch (CannotCompileException e) {
-						System.out.println("Failed to modify: " + m);
-						e.printStackTrace();
+						LOG.error("Can not modify", e);
 					} catch (NotFoundException e) {
-						System.out.println("Class not found: " + e.getMessage());
-						e.printStackTrace();
+						LOG.error("Class not found: " + e.getMessage(), e);
 					}
 				}
 			}
@@ -62,8 +64,7 @@ public class RecursionTracingTransformer implements ClassFileTransformer {
 			try {
 				byteCode = cc.toBytecode();
 			} catch (Exception e) {
-				System.out.println("Can not convert to byte code");
-				e.printStackTrace();
+				LOG.error("Can not convert to byte code", e);
 			} finally {
 				cc.detach();	
 			}
@@ -73,7 +74,7 @@ public class RecursionTracingTransformer implements ClassFileTransformer {
 	}
 	
 	private CtMethod addProxyMethod(CtMethod m, CtClass clazz) throws CannotCompileException, NotFoundException {
-		System.out.println("\tGenerating Tracer Method...");
+		LOG.trace("\tGenerating Tracer Method...");
 		final String methodName = m.getName();
 		final String methodClass = m.getClass().getName();
 		final String methodSignature = m.getSignature();
@@ -84,7 +85,7 @@ public class RecursionTracingTransformer implements ClassFileTransformer {
 		copy.insertParameter(ccTraceRecorder);
 		copy.addLocalVariable("__call", ccTraceRecorder);
 		copy.insertBefore("__call = $1;");
-		System.out.println("\t\tInjecting Method: " + copy.getName() + " " + copy.getSignature());
+		LOG.trace("\t\tInjecting Method: {} {}", copy.getName(), copy.getSignature());
 		clazz.addMethod(copy);
 		
 		copy.instrument(new ExprEditor() {
@@ -93,7 +94,7 @@ public class RecursionTracingTransformer implements ClassFileTransformer {
 				if(methodName.equals(call.getMethodName())
 						&& methodSignature.equals(call.getSignature())
 						&& methodClass.equals(methodClass)) {
-					System.out.println("\t\tPatching recursive calls to call generated method...");
+					LOG.trace("\t\tPatching recursive calls to call generated method...");
 					call.replace("hp.bootmgr.algoexpert.CallTrace c = new hp.bootmgr.algoexpert.CallTrace();"
 							+ "__call.calls.add(c);"
 							+ "c.setParams($args);"

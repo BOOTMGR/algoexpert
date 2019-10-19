@@ -6,7 +6,13 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintWriter;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 public class FileUtils {
+	
+	private static final Logger LOG = LoggerFactory.getLogger(FileUtils.class);
+	
 	public static String readClassPathFile(String name) throws IOException {
 		InputStream in  = FileUtils.class.getResourceAsStream(name);
 		return readStream(in);
@@ -29,8 +35,7 @@ public class FileUtils {
 			writer.write(content);
 			writer.close();
 		} catch (FileNotFoundException e) {
-			e.printStackTrace();
-			System.out.println("Can not file");
+			LOG.error("Can not file", e);
 		} finally {
 			if(writer != null)
 				writer.close();
